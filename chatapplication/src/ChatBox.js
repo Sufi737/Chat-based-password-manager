@@ -1,10 +1,21 @@
 import React from "react";
+import './Chatbox.css';
 
 function Message(props) {
   if (props.messageType === "user") {
-    return <div>{props.message}</div>
+    let usermessage = <div class="talk-bubble-user tri-right btm-right-in">
+                        <div class="talktext">
+                          <p>{props.message}</p>
+                        </div>
+                      </div>
+    return usermessage
   } else {
-    return <div>{props.message}</div>
+    let botmessage = <div class="talk-bubble-bot tri-right btm-left-in">
+                      <div class="talktext">
+                        <p>{props.message}</p>
+                      </div>
+                    </div>
+    return botmessage
   }
 }
 
@@ -24,10 +35,11 @@ class ChatBox extends React.Component {
         }
       }
     }
-
-    //based on last message process it, make an api call and add the response in the end
-
-    return this.msgComps
+    let chatbox = 
+    <div id="chat_box" className="container">
+      {this.msgComps}
+    </div>
+    return chatbox
   }
 }
 

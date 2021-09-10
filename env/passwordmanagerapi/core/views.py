@@ -1,3 +1,4 @@
+from types import CellType
 from cryptography import fernet
 from django.http import JsonResponse, response
 from rest_framework.response import Response
@@ -11,6 +12,15 @@ from cryptography.fernet import Fernet
 from django.db.models.base import ObjectDoesNotExist
 import traceback
 import hashlib
+
+#logger configuration
+import logging
+logging.basicConfig(filename="exceptions.log",
+                    format='%(asctime)s %(message)s',
+                    filemode='w')
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 
 class RegisterUser(APIView):
     def post(self, request, *args, **kwargs):
@@ -47,6 +57,7 @@ class RegisterUser(APIView):
                 "status_code": "server_error",
                 "message": str(e)
             }
+            logger.error(str(e))
             return Response(response)
 
 class VerifyUser(APIView):
@@ -73,6 +84,7 @@ class VerifyUser(APIView):
         except Exception as e:
             response["status_code"] = "failure"
             response["message"] = str(e)
+            logger.error(str(e))
 
         return Response(response)
 
@@ -85,6 +97,18 @@ class NewCreds(APIView):
             hash_object = hashlib.sha256(str.encode(userInfo["password"]))
             hex_dig = hash_object.hexdigest()
             if userObject.password_hash == hex_dig:
+                try:
+                    credObject = CustomerCredentials.objects.get(
+                        for_website=userInfo["for_website"], 
+                        website_username = userInfo["website_username"],
+                        customer_id = userObject
+                    )
+                except Exception as e:
+                    credObject = None
+                if credObject is not None and credObject.id:
+                    response["status_code"] = "duplicate_creds"
+                    response["message"] = "Given username and website combination already exists"
+                    return Response(response)
                 salt = os.urandom(12)
                 salt += b'\x0c\xf2\xf8\x16'
                 newSalt = CustomerKey.objects.create(
@@ -121,6 +145,7 @@ class NewCreds(APIView):
             tb = traceback.format_exc()
             response["stacktrace"] = str(tb)
             response["message"] = str(e)
+            logger.error(str(e))
 
         return Response(response)
 
@@ -135,7 +160,8 @@ class GetCreds(APIView):
             if userObject.password_hash == hex_dig:
                 credObject = CustomerCredentials.objects.get(
                     for_website=userInfo["for_website"], 
-                    website_username = userInfo["website_username"]
+                    website_username = userInfo["website_username"],
+                    customer_id = userObject
                 )
                 if credObject.id:
                     salt_record = CustomerKey.objects.get(
@@ -170,6 +196,7 @@ class GetCreds(APIView):
             tb = traceback.format_exc()
             response["stacktrace"] = str(tb)
             response["message"] = str(e)
+            logger.error(str(e))
 
         return Response(response)
 
@@ -184,7 +211,11 @@ class GetWebsiteCreds(APIView):
             hex_dig = hash_object.hexdigest()
             if userObject.password_hash == hex_dig:
                 creds = []
-                credential_records = CustomerCredentials.objects.filter(for_website=userInfo["for_website"])
+                credential_records = CustomerCredentials.objects.filter(
+                    customer_id=userObject,
+                    for_website=userInfo["for_website"]
+                )
+                
                 if credential_records:
                     for credential in credential_records:
                         salt_record = CustomerKey.objects.get(
@@ -224,5 +255,6 @@ class GetWebsiteCreds(APIView):
             tb = traceback.format_exc()
             response["stacktrace"] = str(tb)
             response["message"] = str(e)
+            logger.error(str(e))
 
         return Response(response)
